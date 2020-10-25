@@ -3,7 +3,7 @@
 const bot = require('./server/server');
 const { deleteMessage } = require('./utils/utils');
 const { start } = require('./controllers/commands');
-const { showCategories, main, drinks, back } = require('./controllers/callbackQueries');
+const { plus, minus, confirm, viewOrder, showCategories, main, burger, pizza, borsch, kebab, drinks, back, ok } = require('./controllers/callbackQueries');
 
 bot.hears(/^\/start/, async ctx => {
     let msg = await ctx.update.message;
@@ -15,6 +15,18 @@ bot.on('callback_query', async ctx => {
     let query = await ctx.update.callback_query;
     console.log(query)
     switch (query.data) {
+        case '+':
+            plus(query);
+            break;
+        case '-':
+            minus(query);
+            break;
+        case 'confirm':
+            confirm(query);
+            break;
+        case 'viewOrder':
+            viewOrder(query);
+            break;
         case 'menu':
             showCategories(query);
             break;
@@ -25,7 +37,22 @@ bot.on('callback_query', async ctx => {
             main(query);
             break;
         case 'drinks':
-            drinks(query)
+            drinks(query);
+            break;
+        case 'burger':
+            burger(query);
+            break;
+        case 'pizza':
+            pizza(query);
+            break;
+        case 'borsch':
+            borsch(query);
+            break;
+        case 'kebab':
+            kebab(query);
+            break;
+        case 'ok':
+            ok(query);
             break;
     };
 });

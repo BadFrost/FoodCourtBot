@@ -25,6 +25,7 @@ const start = async msg => {
         parse_mode: 'HTML',
         reply_markup: JSON.stringify({
             inline_keyboard: [
+                [{text: 'Мой заказ', callback_data: 'viewOrder'}],
                 [{text: 'Меню', callback_data: 'menu'}]
             ]
         })
