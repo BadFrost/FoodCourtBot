@@ -3,7 +3,7 @@
 const bot = require('./server/server');
 const { deleteMessage } = require('./utils/utils');
 const { start } = require('./controllers/commands');
-const { plus, minus, confirm, viewOrder, showCategories, main, burger, pizza, borsch, kebab, drinks, cola, coffee, back, ok } = require('./controllers/callbackQueries');
+const { plus, minus, confirm, viewOrder, showCategories, main, burger, pizza, borsch, kebab, drinks, cola, coffee, tea, back, ok } = require('./controllers/callbackQueries');
 
 bot.hears(/^\/start/, async ctx => {
     let msg = await ctx.update.message;
@@ -59,6 +59,9 @@ bot.on('callback_query', async ctx => {
             break;
         case 'coffee':
             coffee(query);
+            break;
+        case 'tea':
+            tea(query);
             break;
     };
 });

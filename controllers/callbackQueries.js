@@ -167,6 +167,32 @@ const plus = async query => {
                 });
             }
             break;
+        case 'tea':
+            i = order.order.findIndex(x => x.name === 'Чай');
+            if (order.order[i].count < 10) {
+                await db.collection('orders').findOneAndUpdate(
+                    { userId: query.from.id }, 
+                    { $inc: { "order.$[x].count": 1, "order.$[x].price": 10 } }, 
+                    { arrayFilters: [{"x.name": 'Чай'}], upsert: true }
+                );
+                axios.post(`https://api.telegram.org/bot${token}/editMessageText`, {
+                    chat_id: query.from.id,
+                    message_id: query.message.message_id,
+                    text: messages.count,
+                    disable_web_page_preview: true,
+                    parse_mode: 'HTML',
+                    reply_markup: JSON.stringify({
+                        inline_keyboard: [
+                            [{ text: '◀', callback_data: '-' }, { text: `${order.order[i].count + 1}`, callback_data: 'count' }, { text: '▶', callback_data: '+' }],
+                            [{ text: 'ОК', callback_data: 'confirm' }, { text: 'Назад', callback_data: 'back' }]
+                        ]
+                    })
+                })
+                .catch(err => {
+                    console.log(err)
+                });
+            }
+        break;
     };
 };
 
@@ -312,6 +338,32 @@ const minus = async query => {
                     { userId: query.from.id }, 
                     { $inc: { "order.$[x].count": -1, "order.$[x].price": -35 } }, 
                     { arrayFilters: [{"x.name": 'Кофе'}], upsert: true }
+                );
+                axios.post(`https://api.telegram.org/bot${token}/editMessageText`, {
+                    chat_id: query.from.id,
+                    message_id: query.message.message_id,
+                    text: messages.count,
+                    disable_web_page_preview: true,
+                    parse_mode: 'HTML',
+                    reply_markup: JSON.stringify({
+                        inline_keyboard: [
+                            [{ text: '◀', callback_data: '-' }, { text: `${order.order[i].count - 1}`, callback_data: 'count' }, { text: '▶', callback_data: '+' }],
+                            [{ text: 'ОК', callback_data: 'confirm' }, { text: 'Назад', callback_data: 'back' }]
+                        ]
+                    })
+                })
+                .catch(err => {
+                    console.log(err)
+                });
+            }
+            break;
+        case 'tea':
+            i = order.order.findIndex(x => x.name === 'Чай');
+            if (order.order[i].count > 1) {
+                await db.collection('orders').findOneAndUpdate(
+                    { userId: query.from.id }, 
+                    { $inc: { "order.$[x].count": -1, "order.$[x].price": -10 } }, 
+                    { arrayFilters: [{"x.name": 'Чай'}], upsert: true }
                 );
                 axios.post(`https://api.telegram.org/bot${token}/editMessageText`, {
                     chat_id: query.from.id,
@@ -800,6 +852,63 @@ const coffee = async query => {
     };
 };
 
+const tea = async query => {
+    let db = getDb();
+    let order = await db.collection('orders').findOne({ userId: query.from.id });
+    if (!order) {
+        await db.collection('users').updateOne({ userId: query.from.id }, {$set: { menuState: 4, item: 'tea' }});
+        await db.collection('orders').insertOne({ userId: query.from.id, order: [{ name: 'Чай', count: 1, price: 10 }], currentItem: 'tea' });
+        axios.post(`https://api.telegram.org/bot${token}/editMessageText`, {
+            chat_id: query.from.id,
+            message_id: query.message.message_id,
+            text: messages.count,
+            disable_web_page_preview: true,
+            parse_mode: 'HTML',
+            reply_markup: JSON.stringify({
+                inline_keyboard: [
+                    [{ text: '◀', callback_data: '-' }, { text: '1', callback_data: 'count' }, { text: '▶', callback_data: '+' }],
+                    [{ text: 'ОК', callback_data: 'confirm' }, { text: 'Назад', callback_data: 'back' }]
+                ]
+            })
+        })
+        .catch(err => {
+            console.log(err)
+        });
+    } else {
+        let i = order.order.findIndex(x => x.name === 'Чай');
+        if (i !== -1) {
+            axios.post(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+                callback_query_id: query.id,
+                text: 'У вас в заказе уже есть чай!',
+                show_alert: true
+            })
+            .catch(err => {
+                console.log(err)
+            });
+        } else {
+            await db.collection('users').updateOne({ userId: query.from.id }, {$set: { menuState: 4, item: 'tea' }});
+            await db.collection('orders').updateOne({ userId: query.from.id }, { $addToSet: { order: { name: 'Чай', count: 1, price: 10 }}});
+            await db.collection('orders').updateOne({ userId: query.from.id }, {$set: { currentItem: 'tea' } });
+            axios.post(`https://api.telegram.org/bot${token}/editMessageText`, {
+                chat_id: query.from.id,
+                message_id: query.message.message_id,
+                text: messages.count,
+                disable_web_page_preview: true,
+                parse_mode: 'HTML',
+                reply_markup: JSON.stringify({
+                    inline_keyboard: [
+                        [{ text: '◀', callback_data: '-' }, { text: '1', callback_data: 'count' }, { text: '▶', callback_data: '+' }],
+                        [{ text: 'ОК', callback_data: 'confirm' }, { text: 'Назад', callback_data: 'back' }]
+                    ]
+                })
+            })
+            .catch(err => {
+                console.log(err)
+            });
+        };
+    };
+};
+
 const back = async query => {
     let db = getDb();
     let user = await db.collection('users').findOne({ userId: query.from.id });
@@ -932,6 +1041,7 @@ module.exports = {
     drinks,
     cola,
     coffee,
+    tea,
     back,
     ok
 }
