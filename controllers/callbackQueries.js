@@ -192,7 +192,33 @@ const plus = async query => {
                     console.log(err)
                 });
             }
-        break;
+            break;
+        case 'juice':
+            i = order.order.findIndex(x => x.name === 'Сок');
+            if (order.order[i].count < 10) {
+                await db.collection('orders').findOneAndUpdate(
+                    { userId: query.from.id }, 
+                    { $inc: { "order.$[x].count": 1, "order.$[x].price": 15 } }, 
+                    { arrayFilters: [{"x.name": 'Сок'}], upsert: true }
+                );
+                axios.post(`https://api.telegram.org/bot${token}/editMessageText`, {
+                    chat_id: query.from.id,
+                    message_id: query.message.message_id,
+                    text: messages.count,
+                    disable_web_page_preview: true,
+                    parse_mode: 'HTML',
+                    reply_markup: JSON.stringify({
+                        inline_keyboard: [
+                            [{ text: '◀', callback_data: '-' }, { text: `${order.order[i].count + 1}`, callback_data: 'count' }, { text: '▶', callback_data: '+' }],
+                            [{ text: 'ОК', callback_data: 'confirm' }, { text: 'Назад', callback_data: 'back' }]
+                        ]
+                    })
+                })
+                .catch(err => {
+                    console.log(err)
+                });
+            }
+            break;
     };
 };
 
@@ -364,6 +390,32 @@ const minus = async query => {
                     { userId: query.from.id }, 
                     { $inc: { "order.$[x].count": -1, "order.$[x].price": -10 } }, 
                     { arrayFilters: [{"x.name": 'Чай'}], upsert: true }
+                );
+                axios.post(`https://api.telegram.org/bot${token}/editMessageText`, {
+                    chat_id: query.from.id,
+                    message_id: query.message.message_id,
+                    text: messages.count,
+                    disable_web_page_preview: true,
+                    parse_mode: 'HTML',
+                    reply_markup: JSON.stringify({
+                        inline_keyboard: [
+                            [{ text: '◀', callback_data: '-' }, { text: `${order.order[i].count - 1}`, callback_data: 'count' }, { text: '▶', callback_data: '+' }],
+                            [{ text: 'ОК', callback_data: 'confirm' }, { text: 'Назад', callback_data: 'back' }]
+                        ]
+                    })
+                })
+                .catch(err => {
+                    console.log(err)
+                });
+            }
+            break;
+        case 'juice':
+            i = order.order.findIndex(x => x.name === 'Сок');
+            if (order.order[i].count > 1) {
+                await db.collection('orders').findOneAndUpdate(
+                    { userId: query.from.id }, 
+                    { $inc: { "order.$[x].count": -1, "order.$[x].price": -15 } }, 
+                    { arrayFilters: [{"x.name": 'Сок'}], upsert: true }
                 );
                 axios.post(`https://api.telegram.org/bot${token}/editMessageText`, {
                     chat_id: query.from.id,
@@ -727,7 +779,7 @@ const drinks = async query => {
         reply_markup: JSON.stringify({
             inline_keyboard: [
                 [{ text: 'Кола, 15 грн', callback_data: 'cola' }, { text: 'Кофе, 35 грн', callback_data: 'coffee' }],
-                [{ text: 'Чай, 10 грн', callback_data: 'tea' }, { text: 'Соки, 15 грн', callback_data: 'jucies' }],
+                [{ text: 'Чай, 10 грн', callback_data: 'tea' }, { text: 'Сок, 15 грн', callback_data: 'juice' }],
                 [{ text: 'Минералка, 10 грн', callback_data: 'water' }],
                 [{ text: 'Назад', callback_data: 'back' }]
             ]
@@ -909,6 +961,63 @@ const tea = async query => {
     };
 };
 
+const juice = async query => {
+    let db = getDb();
+    let order = await db.collection('orders').findOne({ userId: query.from.id });
+    if (!order) {
+        await db.collection('users').updateOne({ userId: query.from.id }, {$set: { menuState: 4, item: 'juice' }});
+        await db.collection('orders').insertOne({ userId: query.from.id, order: [{ name: 'Сок', count: 1, price: 15 }], currentItem: 'juice' });
+        axios.post(`https://api.telegram.org/bot${token}/editMessageText`, {
+            chat_id: query.from.id,
+            message_id: query.message.message_id,
+            text: messages.count,
+            disable_web_page_preview: true,
+            parse_mode: 'HTML',
+            reply_markup: JSON.stringify({
+                inline_keyboard: [
+                    [{ text: '◀', callback_data: '-' }, { text: '1', callback_data: 'count' }, { text: '▶', callback_data: '+' }],
+                    [{ text: 'ОК', callback_data: 'confirm' }, { text: 'Назад', callback_data: 'back' }]
+                ]
+            })
+        })
+        .catch(err => {
+            console.log(err)
+        });
+    } else {
+        let i = order.order.findIndex(x => x.name === 'Сок');
+        if (i !== -1) {
+            axios.post(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+                callback_query_id: query.id,
+                text: 'У вас в заказе уже есть сок!',
+                show_alert: true
+            })
+            .catch(err => {
+                console.log(err)
+            });
+        } else {
+            await db.collection('users').updateOne({ userId: query.from.id }, {$set: { menuState: 4, item: 'juice' }});
+            await db.collection('orders').updateOne({ userId: query.from.id }, { $addToSet: { order: { name: 'Сок', count: 1, price: 15 }}});
+            await db.collection('orders').updateOne({ userId: query.from.id }, {$set: { currentItem: 'juice' } });
+            axios.post(`https://api.telegram.org/bot${token}/editMessageText`, {
+                chat_id: query.from.id,
+                message_id: query.message.message_id,
+                text: messages.count,
+                disable_web_page_preview: true,
+                parse_mode: 'HTML',
+                reply_markup: JSON.stringify({
+                    inline_keyboard: [
+                        [{ text: '◀', callback_data: '-' }, { text: '1', callback_data: 'count' }, { text: '▶', callback_data: '+' }],
+                        [{ text: 'ОК', callback_data: 'confirm' }, { text: 'Назад', callback_data: 'back' }]
+                    ]
+                })
+            })
+            .catch(err => {
+                console.log(err)
+            });
+        };
+    };
+};
+
 const back = async query => {
     let db = getDb();
     let user = await db.collection('users').findOne({ userId: query.from.id });
@@ -1042,6 +1151,7 @@ module.exports = {
     cola,
     coffee,
     tea,
+    juice,
     back,
     ok
 }
